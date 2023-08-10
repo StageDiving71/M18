@@ -8,13 +8,18 @@
 import UIKit
 import SnapKit
 
-class ViewControllerMain: UIViewController {
+final class ViewControllerMain: UIViewController {
     
-    var movies1 = [Result1]()
-    
+  //  var movies1 = [Country]()
+        
     let networkDataFetcher = NetworkDataFetcher()
+  
+    var setData = [Film]()
+    
+    let press: ViewPresenterProtocol = ViewControllerPresenter()
     
     var searchResponse: Welcome? = nil
+    
     
     let searchController = UISearchController(searchResultsController: nil)
     
@@ -38,12 +43,15 @@ class ViewControllerMain: UIViewController {
         view.backgroundColor = .white
         title = "Searh"
         
+        press.setView(self)
+        
         table.dataSource = self
         table.delegate = self
         
         setupSearchBar()
         setupView()
         setupConstraints()
+        press.setupData(with: setData)
     }
     
     private func setupSearchBar() {
@@ -69,32 +77,61 @@ class ViewControllerMain: UIViewController {
 }
 
 
-
+extension ViewControllerMain: ModelViewControllerProtocol {
+    func showAlert(title: String, message: String) {
+        
+    }
+    
+    
+}
 //MARK: - extension TableView
 
 extension ViewControllerMain: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return movies1.count
+        setData.count
+        //press.numberOfRowInSection(section)
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: CustomCell.identifier, for: indexPath) as! CustomCell
-        
-        cell.configure(with: movies1[indexPath.row])
+        cell.configure(with: setData[indexPath.row])
         
         return cell
     }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let vc = MovieViewController()
+        vc.indicator.startAnimating()
+        guard let apiURL = URL(string: setData[indexPath.row].posterURL) else { return }
+        
+        vc.configure1(with: setData[indexPath.row])
+        
+        URLSession.shared.dataTask(with: apiURL) { data, _, _ in
+            guard let data = data else { return }
+            DispatchQueue.main.async {
+                vc.imageView.image = UIImage(data: data)
+                vc.indicator.stopAnimating()
+            }
+        }.resume()
+     
+        
+        vc.title = searchResponse?.films[indexPath.row].nameRu
+        tableView.reloadData()
+
+        
+        navigationController?.pushViewController(vc, animated: true)
+    }
 }
-
-
 
 //MARK: -  extension SearchController
 extension ViewControllerMain: UISearchBarDelegate {
     
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         
-        let urlString = "https://imdb-api.com/API/Search/k_a11p9jp6/\(searchText)"//Avatar""https://imdb-api.com/swagger/index.html"
+        let urlString = "https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=\(searchText)"
+        print(setData.count)
+        //"https://www.omdbapi.com/?i=tt3896198&apikey=fded5355&s=\(searchText)" //"https://imdb-api.com/API/Search/k_a11p9jp6/\(searchText)"//Avatar""https://imdb-api.com/swagger/index.html"
         
         timer?.invalidate()
         
@@ -103,10 +140,19 @@ extension ViewControllerMain: UISearchBarDelegate {
                 guard let searchResponse = searchResponse else { return }
                 
                 self.searchResponse = searchResponse
-                self.movies1.append(contentsOf: searchResponse.results)
-                
+                self.setData.append(contentsOf: searchResponse.films)
+                print("Count are: \(self.setData.count)")
+
                 self.table.reloadData()
             }
         })
     }
+}
+
+extension ViewControllerMain: ViewProtocol {
+    func reloadTable() {
+        
+    }
+    
+    
 }
